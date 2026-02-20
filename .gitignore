@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Project Specific
+*.db
+career_model.pkl
+label_encoders.pkl
+*_career_profile.pdf
+*_chart.png
+
+# PyInstaller / Build Artifacts
+build/
+dist/
+*.spec
+
+# IDEs
+.vscode/
+.idea/
