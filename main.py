@@ -29,7 +29,7 @@ class AdvancedCareerApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         
-        self.title("AI Career Recommendation Hub Pro | GIET Edition")
+        self.title("AI Career Recommendation Hub Pro | KIT Edition")
         self.geometry("1400x900")
         
         # Grid System
@@ -37,8 +37,8 @@ class AdvancedCareerApp(ctk.CTk):
         self.grid_columnconfigure(1, weight=1)
         
         # User Database & History
-        self.users_db = {"chandan": {"password": "1234", "name": "Chandan", "stream": "Science", "college": "GIET"}} 
-        self.user_history = {"chandan": []} # Structure: { "username" : [ ("Date", "Recommendation", ConfidenceScore) ] }
+        self.users_db = {"Rohit": {"password": "1234", "name": "Rohit", "stream": "Science", "college": "KIT"}} 
+        self.user_history = {"Rohit": []} # Structure: { "username" : [ ("Date", "Recommendation", ConfidenceScore) ] }
         self.current_user = None
         
         self.show_login_screen()
@@ -63,13 +63,13 @@ class AdvancedCareerApp(ctk.CTk):
         card.pack_propagate(False) # Don't shrink to fit children
         
         # Branding
-        ctk.CTkLabel(card, text="GIET AI Hub", font=ctk.CTkFont(family="Inter", size=42, weight="bold"), text_color="#58a6ff").pack(pady=(50, 5))
+        ctk.CTkLabel(card, text="KIT AI Hub", font=ctk.CTkFont(family="Inter", size=42, weight="bold"), text_color="#58a6ff").pack(pady=(50, 5))
         ctk.CTkLabel(card, text="Sign in to your career dashboard", font=ctk.CTkFont(family="Inter", size=14), text_color="#8b949e").pack(pady=(0, 40))
         
         # Inputs
         self.u_login = ctk.CTkEntry(card, placeholder_text="Enter Username", width=320, height=45, font=ctk.CTkFont(size=14))
         self.u_login.pack(pady=15)
-        self.u_login.insert(0, "chandan")  # Default login
+        self.u_login.insert(0, "Rohit")  # Default login
         
         self.p_login = ctk.CTkEntry(card, placeholder_text="Enter Password", show="•", width=320, height=45, font=ctk.CTkFont(size=14))
         self.p_login.pack(pady=15)
@@ -97,7 +97,7 @@ class AdvancedCareerApp(ctk.CTk):
         ctk.CTkLabel(card, text="Create a new profile path", font=ctk.CTkFont(family="Inter", size=14), text_color="#8b949e").pack(pady=(0, 30))
         
         COLLEGES = [
-            "Gandhi institute for education and technology, Baniatangi",
+            "Kalam Institute of Technology (KIT)",
             "KIIT",
             "B.J.B. Autonomous College (Bhubaneswar)",
             "Prananath Autonomous College (Mukundaprasad)",
@@ -107,9 +107,31 @@ class AdvancedCareerApp(ctk.CTk):
             "Baba Residential College",
             "Mahaprabhu Jagannath Higher Secondary School",
             "Jatani Junior College",
-            "Keranga Panchayata Mahavidyalaya"
+            "Keranga Panchayata Mahavidyalaya",
+            "Parala Maharaja Engineering College (PMEC)",
+            "National Institute of Science and Technology (NIST) University",
+            "Roland Institute of Technology (RIT)",
+            "Sanjay Memorial Institute of Technology (SMIT)",
+            "Vignan Institute of Technology and Management (VITM)",
+            "Gandhi institute for education and technology, Baniatangi",
+            "Rahul Institute of Engineering & Technology (RIET)",
+            "Gopal Krishna College of Engineering and Technology (GKCET)",
+            "Roland Institute of Pharmaceutical Sciences (RIPS)",
+            "College of Pharmaceutical Sciences (CPS), Mohuda",
+            "Royal College of Pharmacy and Health Sciences",
+            "Om Sai College of Pharmacy and Health Sciences",
+            "Khallikote Autonomous College, Berhampur",
+            "SBR Government Women’s College, Berhampur",
+            "Binayak Acharya Degree College, Berhampur",
+            "Government Science College, Chatrapur",
+            "Aska Science College, Aska",
+            "Science College, Hinjilicut",
+            "Khemundi College, Digapahandi",
+            "KSUB College, Bhanjanagar",
+            "Tara Tarini College, Purushottampur",
+            "Ganjam College, Ganjam"
         ]
-        
+
         self.name_reg = ctk.CTkEntry(card, placeholder_text="Full Name", width=320, height=40)
         self.name_reg.pack(pady=8)
         
@@ -552,23 +574,36 @@ class AdvancedCareerApp(ctk.CTk):
             # Use a slightly darker text color for contrast against pastels
             ctk.CTkLabel(alt_frame, text=f"• {name_alt}", text_color="#334155", font=ctk.CTkFont(size=14, weight="bold")).pack(anchor="w", padx=15, pady=12)
             
-        # Parse AI Text for Salary, Growth, and Skills using flexible regex for robust matching
+        # Parse AI Text for Salary, Growth, and Skills using more flexible regex and fallbacks
         import re
         ai_clean = ai_text.replace("**", "").replace("*", "")
         extracted_data = {}
-        
-        # Capture everything after "Required Skills:" up to the next newline or common next keyword (Salary)
-        skills_match = re.search(r'Required Skills:\s*(.*?)(?=\n|Estimated Salary|$)', ai_clean, re.IGNORECASE | re.DOTALL)
+
+        # Flexible matches to tolerate variations in heading text
+        skills_match = re.search(r'(?:Required Skills|Required skill[s]?):\s*(.*?)(?=\n|Estimated Salary|Salary Range|Growth Trends|$)', ai_clean, re.IGNORECASE | re.DOTALL)
         if skills_match:
             extracted_data["Skills"] = skills_match.group(1).strip()
-            
-        salary_match = re.search(r'Estimated Salary Range:\s*(.*?)(?=\n|Growth Trends|$)', ai_clean, re.IGNORECASE | re.DOTALL)
+
+        salary_match = re.search(r'(?:Estimated Salary Range|Estimated Salary|Salary Range|Salary):\s*(.*?)(?=\n|Growth Trends|$)', ai_clean, re.IGNORECASE | re.DOTALL)
         if salary_match:
             extracted_data["Salary"] = salary_match.group(1).strip()
-            
-        growth_match = re.search(r'Growth Trends:\s*(.*?)(?=\n|$)', ai_clean, re.IGNORECASE | re.DOTALL)
+        else:
+            # Fallback: look for common currency patterns if explicit label is missing
+            curr_match = re.search(r'\$\s?\d{1,3}(?:[,\d]{0,})*(?:\.\d+)?(?:\s*-\s*\$\s?\d{1,3}(?:[,\d]{0,})*(?:\.\d+)?)?', ai_clean)
+            if curr_match:
+                extracted_data["Salary"] = curr_match.group(0).strip()
+
+        growth_match = re.search(r'(?:Growth Trends|Growth|Job Growth|Projected Growth):\s*(.*?)(?=\n|$)', ai_clean, re.IGNORECASE | re.DOTALL)
         if growth_match:
             extracted_data["Growth"] = growth_match.group(1).strip()
+        else:
+            # Fallback: look for words like 'demand', 'high', 'growing' nearby the career name
+            near_growth = re.search(r'\b(demand|growing|growth|high demand|increasing|declining|stable)\b[^\n]{0,80}', ai_clean, re.IGNORECASE)
+            if near_growth:
+                # capture a short context sentence around the match
+                start = max(0, near_growth.start() - 40)
+                end = min(len(ai_clean), near_growth.end() + 40)
+                extracted_data["Growth"] = ai_clean[start:end].strip()
                 
         if extracted_data:
             c3_ai_head = ctk.CTkFrame(col3, fg_color="#e0f2fe", corner_radius=10) # light blue
@@ -674,7 +709,7 @@ class AdvancedCareerApp(ctk.CTk):
             pdf.set_fill_color(*primary_color)
             pdf.set_text_color(255, 255, 255)
             pdf.set_font("Helvetica", style="B", size=22)
-            pdf.cell(0, 20, " GIET AI CAREER PROFILE REPORT ", align="C", new_x="LMARGIN", new_y="NEXT", fill=True)
+            pdf.cell(0, 20, " KIT AI CAREER PROFILE REPORT ", align="C", new_x="LMARGIN", new_y="NEXT", fill=True)
             pdf.ln(10)
             
             # User Data Section
