@@ -78,6 +78,95 @@ This path offers excellent growth opportunities and stability. Keep honing your 
     
     return insight
 
+# ==========================================
+# RESUME BUILDER AI FUNCTIONS
+# ==========================================
+
+def generate_resume_content(data: dict) -> dict:
+    """
+    Calls Gemini AI to generate professional resume content.
+    Takes a dict with name, target_role, education, experience, skills, location.
+    Returns a dict with keys: objective, summary, strengths (list).
+    Falls back gracefully if Gemini is unavailable.
+    """
+    api_key = os.environ.get("GEMINI_API_KEY")
+    fallback = generate_resume_fallback(data)
+
+    if not api_key:
+        return fallback
+
+    try:
+        import json as _json
+        client = genai.Client(api_key=api_key)
+
+        prompt = f"""You are a professional resume writer AI. Given the following student's details, generate resume content.
+
+Student Details:
+- Name: {data.get('name', '')}
+- Target Job Role: {data.get('target_role', '')}
+- Education: {data.get('education', '')}
+- Work / Internship Experience: {data.get('experience', '')}
+- Skills: {data.get('skills', '')}
+- Location: {data.get('location', '')}
+
+Generate the following 3 things tailored specifically to the student's target role:
+1. A strong, 1-sentence professional career objective statement.
+2. A compelling 2-3 sentence professional summary paragraph.
+3. Exactly 4 key professional strengths as concise bullet phrases.
+
+IMPORTANT: Return ONLY a valid JSON object with no markdown formatting, no code fences, no extra text.
+The JSON must use these exact keys:
+{{"objective": "one powerful sentence here", "summary": "2-3 sentence paragraph here", "strengths": ["strength 1", "strength 2", "strength 3", "strength 4"]}}"""
+
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+        )
+
+        if response.text:
+            text = response.text.strip()
+            # Strip markdown code fences if the model wraps output
+            if text.startswith("```"):
+                parts = text.split("```")
+                text = parts[1] if len(parts) > 1 else text
+                if text.startswith("json"):
+                    text = text[4:]
+            text = text.strip()
+            result = _json.loads(text)
+            # Validate expected keys are present
+            if "objective" in result and "summary" in result and "strengths" in result:
+                return result
+
+        return fallback
+
+    except Exception as e:
+        print(f"Resume AI Error: {e}")
+        return fallback
+
+
+def generate_resume_fallback(data: dict) -> dict:
+    """Returns a reasonable offline resume content dict when Gemini is unavailable."""
+    name = data.get("name", "You")
+    role = data.get("target_role", "the desired position")
+    return {
+        "objective": (
+            f"Motivated and dedicated professional seeking a {role} position "
+            f"where I can apply my academic knowledge and skills to drive meaningful impact."
+        ),
+        "summary": (
+            f"{name} is a driven individual with a solid academic background and a passion for "
+            f"excellence in {role}. Known for a proactive attitude and strong problem-solving abilities, "
+            f"{name} brings both technical depth and interpersonal skills to every challenge."
+        ),
+        "strengths": [
+            "Strong analytical and critical thinking mindset",
+            "Excellent verbal and written communication skills",
+            "Adaptable and fast learner in dynamic environments",
+            "Collaborative team player with natural leadership qualities",
+        ]
+    }
+
+
 if __name__ == "__main__":
     # Test the fallback
     traits = ["Math", "Science", "English", "Aptitude", "Tech"]

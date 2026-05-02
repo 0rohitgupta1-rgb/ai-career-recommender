@@ -10,19 +10,17 @@ import numpy as np
 from ml_engine import MLPredictor
 from ai_service import get_career_insights
 
-# Initialize ML Predictor (this will train or load the model)
-ml_engine = MLPredictor()
-
 # Setup themes
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
 
-# The 12 features we train on
+# The 15 features we train on
 FEATURES = [
     "Mathematics", "Science", "English", "Aptitude Space", 
     "Technical Knack", "Communication", "Logical Reasoning", 
     "Creative Ability", "Arts Interest", "Science Interest", 
-    "Commercial Awareness", "Big 5: Extroversion"
+    "Commercial Awareness", "Big 5: Extroversion",
+    "Leadership", "Problem Solving", "Computer Science"
 ]
 
 class AdvancedCareerApp(ctk.CTk):
@@ -37,11 +35,18 @@ class AdvancedCareerApp(ctk.CTk):
         self.grid_columnconfigure(1, weight=1)
         
         # User Database & History
-        self.users_db = {"Rohit": {"password": "1234", "name": "Rohit", "stream": "Science", "college": "KIT"}} 
+        self.users_db = {"Rohit": {"password": "1234", "name": "Rohit", "stream": "Science", "college": "KIT"}}
         self.user_history = {"Rohit": []} # Structure: { "username" : [ ("Date", "Recommendation", ConfidenceScore) ] }
         self.current_user = None
-        
+        self.ml_engine = None
+
+        # Load ML model in background so GUI appears immediately
+        threading.Thread(target=self._load_ml_model, daemon=True).start()
+
         self.show_login_screen()
+
+    def _load_ml_model(self):
+        self.ml_engine = MLPredictor()
 
     def clear_screen(self):
         for widget in self.winfo_children(): 
@@ -191,7 +196,7 @@ class AdvancedCareerApp(ctk.CTk):
         # 1. Sidebar Frame
         self.sidebar = ctk.CTkFrame(self, width=280, corner_radius=0, fg_color="#161b22")
         self.sidebar.grid(row=0, column=0, sticky="nsew")
-        self.sidebar.grid_rowconfigure(5, weight=1) # Push logout to bottom
+        self.sidebar.grid_rowconfigure(6, weight=1) # Push logout to bottom
         
         # Brand
         ctk.CTkLabel(self.sidebar, text="AI Hub Pro", font=ctk.CTkFont(family="Inter", size=24, weight="bold"), text_color="#58a6ff").grid(row=0, column=0, padx=20, pady=(30, 10), sticky="w")
@@ -209,16 +214,19 @@ class AdvancedCareerApp(ctk.CTk):
         self.nav_history = ctk.CTkButton(self.sidebar, text="📊 Results History", anchor="w", fg_color="transparent", hover_color="#21262d", font=ctk.CTkFont(size=15), height=45, command=self.show_history_page)
         self.nav_history.grid(row=4, column=0, padx=20, pady=5, sticky="ew")
         
+        self.nav_resume = ctk.CTkButton(self.sidebar, text="📄 Resume Builder", anchor="w", fg_color="transparent", hover_color="#21262d", font=ctk.CTkFont(size=15), height=45, command=self.show_resume_builder)
+        self.nav_resume.grid(row=5, column=0, padx=20, pady=5, sticky="ew")
+        
         # Bottom controls
         self.nav_logout = ctk.CTkButton(self.sidebar, text="Sign Out", fg_color="#da3633", hover_color="#f85149", anchor="center", font=ctk.CTkFont(size=14, weight="bold"), height=40, command=self.show_login_screen)
-        self.nav_logout.grid(row=6, column=0, padx=20, pady=20, sticky="ew")
+        self.nav_logout.grid(row=7, column=0, padx=20, pady=20, sticky="ew")
         
         # 2. Main Content Frame
         self.main_content = ctk.CTkFrame(self, fg_color="#0d1117", corner_radius=0)
         self.main_content.grid(row=0, column=1, sticky="nsew")
 
     def reset_sidebar(self):
-        for btn in [self.nav_home, self.nav_assess, self.nav_history]:
+        for btn in [self.nav_home, self.nav_assess, self.nav_history, self.nav_resume]:
             btn.configure(fg_color="transparent")
 
     # ==========================================
@@ -257,7 +265,7 @@ class AdvancedCareerApp(ctk.CTk):
         banner.pack_propagate(False)
         
         ctk.CTkLabel(banner, text="Ready to map your future?", font=ctk.CTkFont(family="Inter", size=28, weight="bold"), text_color="white").place(relx=0.1, rely=0.3, anchor="w")
-        ctk.CTkLabel(banner, text="Take the 12-factor aptitude and skill assessment to get AI-powered recommendations.", font=ctk.CTkFont(size=15), text_color="#c9d1d9").place(relx=0.1, rely=0.5, anchor="w")
+        ctk.CTkLabel(banner, text="Take the 15-factor aptitude and skill assessment to get AI-powered recommendations.", font=ctk.CTkFont(size=15), text_color="#c9d1d9").place(relx=0.1, rely=0.5, anchor="w")
         
         ctk.CTkButton(banner, text="Start Assessment Now →", fg_color="white", text_color="#1f6feb", hover_color="#f0f6fc", font=ctk.CTkFont(size=16, weight="bold"), width=250, height=50, command=self.show_assessment).place(relx=0.1, rely=0.75, anchor="w")
 
@@ -307,7 +315,7 @@ class AdvancedCareerApp(ctk.CTk):
         header = ctk.CTkFrame(self.main_content, fg_color="transparent")
         header.pack(fill="x", padx=40, pady=(40, 10))
         ctk.CTkLabel(header, text="Neural Cognitive Assessment", font=ctk.CTkFont(family="Inter", size=32, weight="bold")).pack(side="left")
-        ctk.CTkLabel(header, text="Adjust the 12 parameters to your perceived skill levels.", text_color="#8b949e", font=ctk.CTkFont(size=14)).pack(side="left", padx=20, pady=10)
+        ctk.CTkLabel(header, text="Adjust the 15 parameters to your perceived skill levels.", text_color="#8b949e", font=ctk.CTkFont(size=14)).pack(side="left", padx=20, pady=10)
 
         # Main Scrollable Form
         form_frame = ctk.CTkScrollableFrame(self.main_content, fg_color="#161b22", corner_radius=15, border_width=1, border_color="#30363d")
@@ -315,11 +323,11 @@ class AdvancedCareerApp(ctk.CTk):
         
         self.sliders = []
         
-        # Categorize the 12 features for better UI
+        # Categorize the 15 features for better UI
         categories = {
-            "Core Cognitive": (FEATURES[0:4], "#1f6aa5"),
-            "Technical & Expression": (FEATURES[4:8], "#2ea043"),
-            "Applied & Extroversion": (FEATURES[8:12], "#9e6a03")
+            "Core Cognitive": (FEATURES[0:5], "#1f6aa5"),
+            "Technical & Expression": (FEATURES[5:10], "#2ea043"),
+            "Applied & Leadership": (FEATURES[10:15], "#9e6a03")
         }
         
         for category, (traits, color) in categories.items():
@@ -382,12 +390,16 @@ class AdvancedCareerApp(ctk.CTk):
         threading.Thread(target=self.run_ai_pipeline, args=(scores,), daemon=True).start()
 
     def run_ai_pipeline(self, scores):
-        # Simulating processing for UI 
+        # Simulating processing for UI
         time.sleep(0.5)
         self.set_progress(0.3, "Running Random Forest inference...")
-        
+
+        # Wait for background ML model load if still in progress
+        while self.ml_engine is None:
+            time.sleep(0.2)
+
         # 1. Run ML Predictor
-        ml_results = ml_engine.predict(scores)
+        ml_results = self.ml_engine.predict(scores)
         primary_career = ml_results[0][0] # Tuple (Name, Probability)
         
         time.sleep(1)
@@ -550,6 +562,27 @@ class AdvancedCareerApp(ctk.CTk):
             # Wrapped label
             ctk.CTkLabel(row, text=b, text_color="#555555", wraplength=250, justify="left").pack(side="left", fill="x", expand=True)
 
+        # Extract and display Required Skills (if present in AI text)
+        skills_text = None
+        skills_match_inline = re.search(r'(?:Required Skills|Required skill[s]?:)\s*(.*?)(?=\.|$)', ai_text, re.IGNORECASE | re.DOTALL)
+        if skills_match_inline:
+            skills_text = skills_match_inline.group(1).strip()
+
+        if not skills_text:
+            # Fallback: look for a line starting with skills-like keywords
+            skills_match_alt = re.search(r'(?m)^(?:Skills|Skills required|Required Skills)[:\-]?\s*(.*)$', ai_text)
+            if skills_match_alt:
+                skills_text = skills_match_alt.group(1).strip()
+
+        if skills_text:
+            ctk.CTkLabel(c2_body, text="Required Skills:", font=ctk.CTkFont(weight="bold", size=14), text_color="#333333").pack(anchor="w", pady=(12, 4))
+            skills_frame = ctk.CTkFrame(c2_body, fg_color="transparent")
+            skills_frame.pack(fill="x")
+            # split into items by comma, semicolon, or newline
+            skills_items = [s.strip() for s in re.split(r'[,;\n]+', skills_text) if s.strip()]
+            for s in skills_items:
+                ctk.CTkLabel(skills_frame, text=f"• {s}", text_color="#555555", font=ctk.CTkFont(size=12), wraplength=300, justify="left").pack(anchor="w", pady=2)
+
         # -----------------------------
         # COLUMN 3: ALTERNATIVE OPTIONS & AI DATA
         # -----------------------------
@@ -678,7 +711,7 @@ class AdvancedCareerApp(ctk.CTk):
             custom_colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', 
                              '#FFEEAD', '#D4A5A5', '#9B59B6', '#3498DB', 
                              '#E67E22', '#2ECC71', '#F1C40F', '#E74C3C']
-            # Fallback to viridis if list length mismatch, but list is 12 long
+            # Fallback to viridis if list length mismatch, but custom color list is 12 long
             colors = custom_colors[:len(FEATURES)] if len(FEATURES) <= len(custom_colors) else plt.cm.viridis(np.linspace(0.2, 0.8, len(FEATURES)))
             
             bars = plt.bar(short_features, original_scores, color=colors, edgecolor='black', linewidth=0.5)
@@ -842,6 +875,941 @@ class AdvancedCareerApp(ctk.CTk):
             messagebox.showerror("Export Error", f"Failed to generate PDF: {e}")
             if 'img_filename' in locals() and os.path.exists(img_filename):
                 os.remove(img_filename)
+
+    # ==========================================
+    # 7. RESUME BUILDER PAGE
+    # ==========================================
+    def show_resume_builder(self):
+        self.reset_sidebar()
+        self.nav_resume.configure(fg_color="#1f6feb")
+        for widget in self.main_content.winfo_children():
+            widget.destroy()
+        self.main_content.configure(fg_color="#0d1117")
+
+        # -- Page-level state --
+        self.resume_photo_path = None
+        self.resume_education_rows = []   # list of dicts: {degree, college, year, grade} -> CTkEntry refs
+        self.resume_experience_rows = []  # list of dicts: {role, company, duration} -> CTkEntry refs
+        self.resume_projects_rows = []    # list of dicts: {title, desc} -> CTkEntry refs
+        self.resume_certs_rows = []       # list of dicts: {title, desc} -> CTkEntry refs
+        self.resume_skills_list = []      # list of plain strings
+        self.resume_ai_content = {}       # populated after AI call
+        self._resume_data_cache = {}      # full data dict cached for PDF export
+
+        import tkinter.filedialog as filedialog
+
+        # ---- Header bar ----
+        header_bar = ctk.CTkFrame(self.main_content, fg_color="transparent")
+        header_bar.pack(fill="x", padx=40, pady=(25, 5))
+        ctk.CTkLabel(
+            header_bar, text="\ud83d\udcc4 Resume Builder",
+            font=ctk.CTkFont(family="Inter", size=30, weight="bold"), text_color="#f0f6fc"
+        ).pack(side="left")
+
+
+        # ---- Two-column body ----
+        body = ctk.CTkFrame(self.main_content, fg_color="transparent")
+        body.pack(fill="both", expand=True, padx=20, pady=(5, 15))
+        body.grid_columnconfigure(0, weight=2)
+        body.grid_columnconfigure(1, weight=3)
+        body.grid_rowconfigure(0, weight=1)
+
+        # ======== LEFT PANEL – FORM ========
+        left_panel = ctk.CTkScrollableFrame(
+            body, fg_color="#161b22", corner_radius=12,
+            border_width=1, border_color="#30363d",
+            scrollbar_button_color="#21262d", scrollbar_button_hover_color="#30363d"
+        )
+        left_panel.grid(row=0, column=0, sticky="nsew", padx=(20, 8), pady=10)
+
+        # Helper: section title with colored underline
+        def section_header(parent, icon, title, color):
+            f = ctk.CTkFrame(parent, fg_color="transparent")
+            f.pack(fill="x", padx=15, pady=(18, 6))
+            ctk.CTkLabel(
+                f, text=f"{icon}  {title}",
+                font=ctk.CTkFont(family="Inter", size=15, weight="bold"),
+                text_color=color
+            ).pack(side="left")
+            ctk.CTkFrame(f, height=2, fg_color=color).pack(
+                side="left", fill="x", expand=True, padx=(10, 0), pady=8
+            )
+
+        # Helper: standard entry
+        def labeled_entry(parent, placeholder):
+            e = ctk.CTkEntry(
+                parent, placeholder_text=placeholder, height=38,
+                fg_color="#0d1117", border_color="#30363d",
+                font=ctk.CTkFont(size=13)
+            )
+            e.pack(fill="x", padx=15, pady=3)
+            return e
+
+        # ---- 1. Photo Upload ----
+        section_header(left_panel, "\ud83d\udcf7", "Profile Photo", "#58a6ff")
+
+        photo_row = ctk.CTkFrame(
+            left_panel, fg_color="#0d1117", corner_radius=10,
+            border_width=1, border_color="#30363d", height=100
+        )
+        photo_row.pack(fill="x", padx=15, pady=4)
+        photo_row.pack_propagate(False)
+
+        self.photo_preview_label = ctk.CTkLabel(
+            photo_row, text="\u25a1  No photo selected",
+            text_color="#8b949e", font=ctk.CTkFont(size=13)
+        )
+        self.photo_preview_label.pack(side="left", padx=20, pady=10)
+
+        def upload_photo():
+            path = filedialog.askopenfilename(
+                title="Select Profile Photo",
+                filetypes=[("Image files", "*.jpg *.jpeg *.png *.bmp"), ("All files", "*.*")]
+            )
+            if path:
+                self.resume_photo_path = path
+                try:
+                    img = Image.open(path).resize((72, 72))
+                    ctk_img = ctk.CTkImage(img, size=(72, 72))
+                    self.photo_preview_label.configure(image=ctk_img, text="")
+                    self.photo_preview_label._image = ctk_img
+                except Exception:
+                    fname = path.replace("\\", "/").split("/")[-1]
+                    self.photo_preview_label.configure(
+                        text=f"\u2713  {fname}", image=None, text_color="#2ea043"
+                    )
+
+        ctk.CTkButton(
+            photo_row, text="Upload Photo", width=140, height=38,
+            fg_color="#1f6feb", hover_color="#388bfd",
+            command=upload_photo, font=ctk.CTkFont(size=13)
+        ).pack(side="right", padx=20, pady=10)
+
+        # ---- 2. Personal Information ----
+        section_header(left_panel, "\ud83d\udc64", "Personal Information", "#2ea043")
+
+        user_data = self.users_db.get(self.current_user, {})
+
+        self.res_name = labeled_entry(left_panel, "Full Name *")
+        self.res_name.insert(0, user_data.get("name", ""))
+
+        self.res_email    = labeled_entry(left_panel, "Email Address *")
+        self.res_phone    = labeled_entry(left_panel, "Phone Number *")
+        self.res_linkedin = labeled_entry(left_panel, "LinkedIn URL (optional)")
+        self.res_github   = labeled_entry(left_panel, "GitHub URL (optional)")
+        self.res_city     = labeled_entry(left_panel, "City, State / Location *")
+        self.res_target   = labeled_entry(left_panel, "Target Job Role (e.g., Software Engineer) *")
+
+        # ---- 3. Education ----
+        section_header(left_panel, "\ud83c\udf93", "Education", "#d2a8ff")
+
+        self.edu_container = ctk.CTkFrame(left_panel, fg_color="transparent")
+        self.edu_container.pack(fill="x", padx=15)
+
+        def add_education_row(degree="", college="", year="", grade=""):
+            rf = ctk.CTkFrame(
+                self.edu_container, fg_color="#0d1117",
+                corner_radius=8, border_width=1, border_color="#30363d"
+            )
+            rf.pack(fill="x", pady=4)
+
+            top = ctk.CTkFrame(rf, fg_color="transparent")
+            top.pack(fill="x", padx=10, pady=(8, 0))
+
+            deg_e = ctk.CTkEntry(
+                top, placeholder_text="Degree / Class / Board",
+                height=34, fg_color="#161b22", border_color="#30363d",
+                font=ctk.CTkFont(size=12)
+            )
+            deg_e.pack(side="left", fill="x", expand=True, padx=(0, 6))
+            if degree:
+                deg_e.insert(0, degree)
+
+            yr_e = ctk.CTkEntry(
+                top, placeholder_text="Year", width=80,
+                height=34, fg_color="#161b22", border_color="#30363d",
+                font=ctk.CTkFont(size=12)
+            )
+            yr_e.pack(side="right")
+            if year:
+                yr_e.insert(0, year)
+
+            bottom = ctk.CTkFrame(rf, fg_color="transparent")
+            bottom.pack(fill="x", padx=10, pady=(4, 8))
+
+            col_e = ctk.CTkEntry(
+                bottom, placeholder_text="Institution / School / University",
+                height=34, fg_color="#161b22", border_color="#30363d",
+                font=ctk.CTkFont(size=12)
+            )
+            col_e.pack(side="left", fill="x", expand=True, padx=(0, 6))
+            if college:
+                col_e.insert(0, college)
+
+            grade_e = ctk.CTkEntry(
+                bottom, placeholder_text="CGPA / %", width=80,
+                height=34, fg_color="#161b22", border_color="#30363d",
+                font=ctk.CTkFont(size=12)
+            )
+            grade_e.pack(side="right")
+            if grade:
+                grade_e.insert(0, grade)
+
+            self.resume_education_rows.append(
+                {"degree": deg_e, "college": col_e, "year": yr_e, "grade": grade_e}
+            )
+
+        # Pre-fill first row with user's existing college
+        add_education_row(college=user_data.get("college", ""))
+
+        ctk.CTkButton(
+            left_panel, text="+ Add Education Row",
+            fg_color="transparent", border_width=1, border_color="#30363d",
+            text_color="#8b949e", hover_color="#21262d", height=32,
+            command=add_education_row, font=ctk.CTkFont(size=12)
+        ).pack(fill="x", padx=15, pady=5)
+
+        # ---- 4. Experience ----
+        section_header(left_panel, "\ud83d\udcbc", "Work / Internship Experience", "#ffa657")
+
+        self.exp_container = ctk.CTkFrame(left_panel, fg_color="transparent")
+        self.exp_container.pack(fill="x", padx=15)
+
+        def add_experience_row(role="", company="", duration=""):
+            rf = ctk.CTkFrame(
+                self.exp_container, fg_color="#0d1117",
+                corner_radius=8, border_width=1, border_color="#30363d"
+            )
+            rf.pack(fill="x", pady=4)
+
+            top = ctk.CTkFrame(rf, fg_color="transparent")
+            top.pack(fill="x", padx=10, pady=(8, 0))
+
+            role_e = ctk.CTkEntry(
+                top, placeholder_text="Job Title / Role",
+                height=34, fg_color="#161b22", border_color="#30363d",
+                font=ctk.CTkFont(size=12)
+            )
+            role_e.pack(side="left", fill="x", expand=True, padx=(0, 6))
+            if role:
+                role_e.insert(0, role)
+
+            dur_e = ctk.CTkEntry(
+                top, placeholder_text="Duration", width=110,
+                height=34, fg_color="#161b22", border_color="#30363d",
+                font=ctk.CTkFont(size=12)
+            )
+            dur_e.pack(side="right")
+            if duration:
+                dur_e.insert(0, duration)
+
+            comp_e = ctk.CTkEntry(
+                rf, placeholder_text="Company / Organization",
+                height=34, fg_color="#161b22", border_color="#30363d",
+                font=ctk.CTkFont(size=12)
+            )
+            comp_e.pack(fill="x", padx=10, pady=(4, 8))
+            if company:
+                comp_e.insert(0, company)
+
+            self.resume_experience_rows.append(
+                {"role": role_e, "company": comp_e, "duration": dur_e}
+            )
+
+        add_experience_row()
+
+        ctk.CTkButton(
+            left_panel, text="+ Add Experience Row",
+            fg_color="transparent", border_width=1, border_color="#30363d",
+            text_color="#8b949e", hover_color="#21262d", height=32,
+            command=add_experience_row, font=ctk.CTkFont(size=12)
+        ).pack(fill="x", padx=15, pady=5)
+
+        # ---- 4b. Projects (Optional) ----
+        section_header(left_panel, "\ud83d\udcbb", "Projects (Optional)", "#58a6ff")
+
+        self.proj_container = ctk.CTkFrame(left_panel, fg_color="transparent")
+        self.proj_container.pack(fill="x", padx=15)
+
+        def add_project_row(title="", desc=""):
+            rf = ctk.CTkFrame(
+                self.proj_container, fg_color="#0d1117",
+                corner_radius=8, border_width=1, border_color="#30363d"
+            )
+            rf.pack(fill="x", pady=4)
+
+            top = ctk.CTkFrame(rf, fg_color="transparent")
+            top.pack(fill="x", padx=10, pady=(8, 0))
+
+            title_e = ctk.CTkEntry(
+                top, placeholder_text="Project Title",
+                height=34, fg_color="#161b22", border_color="#30363d",
+                font=ctk.CTkFont(size=12)
+            )
+            title_e.pack(fill="x", expand=True)
+            if title: title_e.insert(0, title)
+
+            bottom = ctk.CTkFrame(rf, fg_color="transparent")
+            bottom.pack(fill="x", padx=10, pady=(4, 8))
+
+            desc_e = ctk.CTkEntry(
+                bottom, placeholder_text="Project Description",
+                height=34, fg_color="#161b22", border_color="#30363d",
+                font=ctk.CTkFont(size=12)
+            )
+            desc_e.pack(fill="x", expand=True)
+            if desc: desc_e.insert(0, desc)
+
+            self.resume_projects_rows.append({"title": title_e, "desc": desc_e})
+
+        ctk.CTkButton(
+            left_panel, text="+ Add Project Row",
+            fg_color="transparent", border_width=1, border_color="#30363d",
+            text_color="#8b949e", hover_color="#21262d", height=32,
+            command=add_project_row, font=ctk.CTkFont(size=12)
+        ).pack(fill="x", padx=15, pady=5)
+
+        # ---- 4c. Certifications (Optional) ----
+        section_header(left_panel, "\ud83c\udfc6", "Achievements / Certifications (Optional)", "#d2a8ff")
+
+        self.cert_container = ctk.CTkFrame(left_panel, fg_color="transparent")
+        self.cert_container.pack(fill="x", padx=15)
+
+        def add_cert_row(title="", desc=""):
+            rf = ctk.CTkFrame(
+                self.cert_container, fg_color="#0d1117",
+                corner_radius=8, border_width=1, border_color="#30363d"
+            )
+            rf.pack(fill="x", pady=4)
+
+            top = ctk.CTkFrame(rf, fg_color="transparent")
+            top.pack(fill="x", padx=10, pady=(8, 8))
+
+            title_e = ctk.CTkEntry(
+                top, placeholder_text="Certification / Achievement",
+                height=34, fg_color="#161b22", border_color="#30363d",
+                font=ctk.CTkFont(size=12)
+            )
+            title_e.pack(side="left", fill="x", expand=True, padx=(0, 6))
+            if title: title_e.insert(0, title)
+            
+            desc_e = ctk.CTkEntry(
+                top, placeholder_text="Details / Issuer",
+                height=34, fg_color="#161b22", border_color="#30363d",
+                font=ctk.CTkFont(size=12)
+            )
+            desc_e.pack(side="left", fill="x", expand=True)
+            if desc: desc_e.insert(0, desc)
+
+            self.resume_certs_rows.append({"title": title_e, "desc": desc_e})
+
+        ctk.CTkButton(
+            left_panel, text="+ Add Certification Row",
+            fg_color="transparent", border_width=1, border_color="#30363d",
+            text_color="#8b949e", hover_color="#21262d", height=32,
+            command=add_cert_row, font=ctk.CTkFont(size=12)
+        ).pack(fill="x", padx=15, pady=5)
+
+        # ---- 5. Skills ----
+        section_header(left_panel, "\ud83d\udee0\ufe0f", "Skills", "#79c0ff")
+
+        skill_row = ctk.CTkFrame(left_panel, fg_color="transparent")
+        skill_row.pack(fill="x", padx=15, pady=4)
+
+        self.skill_entry = ctk.CTkEntry(
+            skill_row, placeholder_text="Type a skill and press Add or Enter",
+            height=38, fg_color="#0d1117", border_color="#30363d",
+            font=ctk.CTkFont(size=13)
+        )
+        self.skill_entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
+
+        self.skill_tags_frame = ctk.CTkFrame(left_panel, fg_color="transparent")
+        self.skill_tags_frame.pack(fill="x", padx=15, pady=4)
+
+        def add_skill_tag(event=None):
+            skill_text = self.skill_entry.get().strip()
+            if not skill_text or skill_text in self.resume_skills_list:
+                return
+            self.resume_skills_list.append(skill_text)
+            tag = ctk.CTkFrame(
+                self.skill_tags_frame, fg_color="#1f3a6e", corner_radius=14,
+                border_width=1, border_color="#388bfd"
+            )
+            tag.pack(side="left", padx=4, pady=3)
+            lbl = ctk.CTkLabel(
+                tag, text=f"  {skill_text}  \u2715",
+                font=ctk.CTkFont(size=12), text_color="#79c0ff"
+            )
+            lbl.pack(padx=4, pady=5)
+
+            def remove_tag(e, t=tag, s=skill_text):
+                if s in self.resume_skills_list:
+                    self.resume_skills_list.remove(s)
+                t.destroy()
+
+            tag.bind("<Button-1>", remove_tag)
+            lbl.bind("<Button-1>", remove_tag)
+            self.skill_entry.delete(0, "end")
+
+        ctk.CTkButton(
+            skill_row, text="Add", width=72, height=38,
+            fg_color="#2ea043", hover_color="#3fb950",
+            command=add_skill_tag, font=ctk.CTkFont(size=13, weight="bold")
+        ).pack(side="right")
+        self.skill_entry.bind("<Return>", add_skill_tag)
+
+        # Pre-populate a few sensible defaults
+        for sk_default in ["Communication", "Problem Solving", "Teamwork"]:
+            self.skill_entry.delete(0, "end")
+            self.skill_entry.insert(0, sk_default)
+            add_skill_tag()
+
+        # ======== RIGHT PANEL – PREVIEW ========
+        right_panel = ctk.CTkFrame(
+            body, fg_color="#161b22", corner_radius=12,
+            border_width=1, border_color="#30363d"
+        )
+        right_panel.grid(row=0, column=1, sticky="nsew", padx=(8, 20), pady=10)
+        right_panel.grid_rowconfigure(1, weight=1)
+        right_panel.grid_columnconfigure(0, weight=1)
+
+        # Right panel header
+        rp_head = ctk.CTkFrame(right_panel, fg_color="#1c2128", corner_radius=10)
+        rp_head.grid(row=0, column=0, sticky="ew", padx=2, pady=2)
+        rp_inner = ctk.CTkFrame(rp_head, fg_color="transparent")
+        rp_inner.pack(fill="x", padx=20, pady=14)
+        ctk.CTkLabel(
+            rp_inner, text="\ud83d\udc41  Resume Preview",
+            font=ctk.CTkFont(family="Inter", size=18, weight="bold"),
+            text_color="#f0f6fc"
+        ).pack(side="left")
+        ctk.CTkLabel(
+            rp_inner,
+            text="AI-generated content will appear here after you click Generate",
+            text_color="#8b949e", font=ctk.CTkFont(size=12)
+        ).pack(side="right")
+
+        # Scrollable preview area
+        self.resume_preview_scroll = ctk.CTkScrollableFrame(
+            right_panel, fg_color="#0d1117", corner_radius=10,
+            scrollbar_button_color="#21262d",
+            scrollbar_button_hover_color="#30363d"
+        )
+        self.resume_preview_scroll.grid(
+            row=1, column=0, sticky="nsew", padx=15, pady=(8, 5)
+        )
+
+        # Placeholder text
+        ctk.CTkLabel(
+            self.resume_preview_scroll,
+            text=(
+                "\u2728  Fill in the form on the left, then click\n"
+                "\"Generate with AI\" to build your resume preview."
+            ),
+            text_color="#30363d",
+            font=ctk.CTkFont(family="Inter", size=15),
+            justify="center"
+        ).pack(pady=100)
+
+        # Action buttons
+        btn_bar = ctk.CTkFrame(right_panel, fg_color="transparent")
+        btn_bar.grid(row=2, column=0, sticky="ew", padx=15, pady=(5, 15))
+
+        self.resume_gen_btn = ctk.CTkButton(
+            btn_bar,
+            text="\ud83e\udd16  Generate with AI",
+            height=48, fg_color="#8957e5", hover_color="#9f75ec",
+            font=ctk.CTkFont(size=15, weight="bold"),
+            command=self.resume_trigger_ai
+        )
+        self.resume_gen_btn.pack(side="left", fill="x", expand=True, padx=(0, 8))
+
+        self.resume_export_btn = ctk.CTkButton(
+            btn_bar,
+            text="\ud83d\udce5  Export PDF",
+            height=48, fg_color="#238636", hover_color="#2ea043",
+            font=ctk.CTkFont(size=15, weight="bold"),
+            command=self.resume_export_pdf
+        )
+        self.resume_export_btn.pack(side="right", fill="x", expand=True, padx=(8, 0))
+
+    def resume_trigger_ai(self):
+        """Collect form data, validate, then call Gemini AI in a background thread."""
+        name        = self.res_name.get().strip()
+        email       = self.res_email.get().strip()
+        phone       = self.res_phone.get().strip()
+        linkedin    = self.res_linkedin.get().strip()
+        city        = self.res_city.get().strip()
+        target_role = self.res_target.get().strip()
+
+        if not name or not target_role:
+            messagebox.showerror(
+                "Missing Fields",
+                "Please fill in at least your Full Name and Target Job Role before generating."
+            )
+            return
+
+        # Collect education
+        education_lines = []
+        for row in self.resume_education_rows:
+            deg = row["degree"].get().strip()
+            col = row["college"].get().strip()
+            yr  = row["year"].get().strip()
+            grd = row["grade"].get().strip()
+            if deg or col:
+                line = f"{deg} from {col} ({yr})"
+                if grd:
+                    line += f" - Score: {grd}"
+                education_lines.append(line)
+
+        # Collect experience
+        experience_lines = []
+        for row in self.resume_experience_rows:
+            role = row["role"].get().strip()
+            comp = row["company"].get().strip()
+            dur  = row["duration"].get().strip()
+            if role or comp:
+                experience_lines.append(f"{role} at {comp} ({dur})")
+
+        github = getattr(self, "res_github", None)
+        github_val = github.get().strip() if github else ""
+
+        # Collect projects
+        proj_lines = []
+        for row in getattr(self, "resume_projects_rows", []):
+            t = row["title"].get().strip()
+            d = row["desc"].get().strip()
+            if t or d: proj_lines.append(f"{t}: {d}")
+
+        # Collect certs
+        cert_lines = []
+        for row in getattr(self, "resume_certs_rows", []):
+            t = row["title"].get().strip()
+            d = row["desc"].get().strip()
+            if t or d: cert_lines.append(f"{t}: {d}")
+
+        data = {
+            "name":        name,
+            "email":       email,
+            "phone":       phone,
+            "linkedin":    linkedin,
+            "github":      github_val,
+            "location":    city,
+            "target_role": target_role,
+            "education":   "; ".join(education_lines) if education_lines else "Details not provided",
+            "experience":  "; ".join(experience_lines) if experience_lines else "Fresher / No prior experience",
+            "skills":      ", ".join(self.resume_skills_list) if self.resume_skills_list else "General professional skills",
+            "projects":    "; ".join(proj_lines) if proj_lines else "",
+            "certs":       "; ".join(cert_lines) if cert_lines else "",
+        }
+        self._resume_data_cache = data
+
+        # Show loading state
+        self.resume_gen_btn.configure(state="disabled", text="\u23f3  Generating...")
+        for widget in self.resume_preview_scroll.winfo_children():
+            widget.destroy()
+
+        loading_lbl = ctk.CTkLabel(
+            self.resume_preview_scroll,
+            text="\ud83e\udd16  Gemini AI is crafting your resume\u2026",
+            text_color="#8957e5", font=ctk.CTkFont(size=15)
+        )
+        loading_lbl.pack(pady=30)
+        prog = ctk.CTkProgressBar(
+            self.resume_preview_scroll, width=300,
+            progress_color="#8957e5", mode="indeterminate"
+        )
+        prog.pack(pady=10)
+        prog.start()
+
+        def run_in_thread():
+            from ai_service import generate_resume_content
+            ai_result = generate_resume_content(data)
+            self.resume_ai_content = ai_result
+            self.after(0, lambda: self.resume_render_preview(data, ai_result))
+
+        threading.Thread(target=run_in_thread, daemon=True).start()
+
+    def resume_render_preview(self, data, ai):
+        """Render the styled resume preview in the right panel."""
+        self.resume_gen_btn.configure(state="normal", text="\ud83e\udd16  Generate with AI")
+
+        for widget in self.resume_preview_scroll.winfo_children():
+            widget.destroy()
+
+        PX = 20  # horizontal padding shorthand
+
+        # ---- Header block (blue) ----
+        hdr = ctk.CTkFrame(
+            self.resume_preview_scroll, fg_color="#1f6feb", corner_radius=10
+        )
+        hdr.pack(fill="x", padx=PX, pady=(10, 5))
+
+        hdr_inner = ctk.CTkFrame(hdr, fg_color="transparent")
+        hdr_inner.pack(fill="x", padx=20, pady=15)
+
+        # Photo thumbnail in preview (top-right)
+        if self.resume_photo_path:
+            try:
+                img = Image.open(self.resume_photo_path).resize((72, 72))
+                ctk_img = ctk.CTkImage(img, size=(72, 72))
+                photo_lbl = ctk.CTkLabel(hdr_inner, image=ctk_img, text="")
+                photo_lbl._image = ctk_img
+                photo_lbl.pack(side="right", padx=(10, 0))
+            except Exception:
+                pass
+
+        ctk.CTkLabel(
+            hdr_inner, text=data["name"].upper(),
+            font=ctk.CTkFont(family="Inter", size=20, weight="bold"),
+            text_color="white"
+        ).pack(anchor="w")
+        ctk.CTkLabel(
+            hdr_inner, text=data["target_role"],
+            font=ctk.CTkFont(size=14), text_color="#c9d1d9"
+        ).pack(anchor="w")
+        contact_parts = [
+            p for p in [data.get("email"), data.get("phone"), data.get("location")]
+            if p
+        ]
+        if contact_parts:
+            ctk.CTkLabel(
+                hdr_inner, text="  \u2022  ".join(contact_parts),
+                font=ctk.CTkFont(size=11), text_color="#adbac7"
+            ).pack(anchor="w", pady=(4, 0))
+        if data.get("linkedin"):
+            ctk.CTkLabel(
+                hdr_inner, text=data["linkedin"],
+                font=ctk.CTkFont(size=11), text_color="#79c0ff"
+            ).pack(anchor="w")
+
+        # ---- Helper: section block in preview ----
+        def preview_section(title, content, accent="#58a6ff"):
+            sec = ctk.CTkFrame(
+                self.resume_preview_scroll, fg_color="#161b22",
+                corner_radius=8, border_width=1, border_color="#30363d"
+            )
+            sec.pack(fill="x", padx=PX, pady=5)
+            ctk.CTkLabel(
+                sec, text=title,
+                font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
+                text_color=accent
+            ).pack(anchor="w", padx=15, pady=(12, 3))
+            ctk.CTkFrame(sec, height=1, fg_color="#30363d").pack(fill="x", padx=15)
+            ctk.CTkLabel(
+                sec, text=content, text_color="#c9d1d9",
+                wraplength=480, justify="left",
+                font=ctk.CTkFont(size=12)
+            ).pack(anchor="w", padx=15, pady=(7, 12))
+
+        # ---- AI-generated sections ----
+        preview_section(
+            "\ud83c\udfaf  Career Objective",
+            ai.get("objective", "N/A"),
+            "#58a6ff"
+        )
+        preview_section(
+            "\ud83d\udccb  Professional Summary",
+            ai.get("summary", "N/A"),
+            "#2ea043"
+        )
+
+        # Key Strengths (bullet list)
+        strengths = ai.get("strengths", [])
+        if strengths:
+            ssec = ctk.CTkFrame(
+                self.resume_preview_scroll, fg_color="#161b22",
+                corner_radius=8, border_width=1, border_color="#30363d"
+            )
+            ssec.pack(fill="x", padx=PX, pady=5)
+            ctk.CTkLabel(
+                ssec, text="\u26a1  Key Strengths",
+                font=ctk.CTkFont(family="Inter", size=13, weight="bold"),
+                text_color="#d2a8ff"
+            ).pack(anchor="w", padx=15, pady=(12, 3))
+            ctk.CTkFrame(ssec, height=1, fg_color="#30363d").pack(fill="x", padx=15)
+            for s in strengths:
+                ctk.CTkLabel(
+                    ssec, text=f"   \u2726  {s}",
+                    text_color="#c9d1d9", font=ctk.CTkFont(size=12), anchor="w"
+                ).pack(anchor="w", padx=15, pady=3)
+            ctk.CTkFrame(ssec, height=8, fg_color="transparent").pack()
+
+        # ---- Form-sourced sections ----
+        edu_lines = []
+        for r in self.resume_education_rows:
+            deg = r['degree'].get().strip()
+            col = r['college'].get().strip()
+            yr  = r['year'].get().strip()
+            grd = r['grade'].get().strip()
+            if deg or col:
+                line = f"\u2022  {deg} \u2014 {col}"
+                if yr: line += f" ({yr})"
+                if grd: line += f"  |  Score: {grd}"
+                edu_lines.append(line)
+
+        if edu_lines:
+            preview_section("\ud83c\udf93  Education", "\n".join(edu_lines), "#d2a8ff")
+
+        exp_lines = [
+            f"\u2022  {r['role'].get()} at {r['company'].get()} \u2014 {r['duration'].get()}"
+            for r in self.resume_experience_rows
+            if r["role"].get().strip() or r["company"].get().strip()
+        ]
+        if exp_lines:
+            preview_section(
+                "\ud83d\udcbc  Work / Internship Experience",
+                "\n".join(exp_lines), "#ffa657"
+            )
+
+        if self.resume_skills_list:
+            preview_section(
+                "\ud83d\udee0\ufe0f  Skills",
+                "  \u2022  ".join(self.resume_skills_list),
+                "#79c0ff"
+            )
+
+        proj_lines = [
+            f"\u2022  {r['title'].get()} \u2014 {r['desc'].get()}"
+            for r in getattr(self, "resume_projects_rows", [])
+            if r["title"].get().strip() or r["desc"].get().strip()
+        ]
+        if proj_lines:
+            preview_section("\ud83d\udcbb  Projects", "\n".join(proj_lines), "#58a6ff")
+
+        cert_lines = [
+            f"\u2022  {r['title'].get()} \u2014 {r['desc'].get()}"
+            for r in getattr(self, "resume_certs_rows", [])
+            if r["title"].get().strip() or r["desc"].get().strip()
+        ]
+        if cert_lines:
+            preview_section("\ud83c\udfc6  Certifications", "\n".join(cert_lines), "#d2a8ff")
+
+    def resume_export_pdf(self):
+        """Export a clean, minimalist, traditional format resume PDF using fpdf2."""
+        if not self._resume_data_cache:
+            messagebox.showwarning("Not Ready", "Please generate your resume with AI first, then export.")
+            return
+
+        data = self._resume_data_cache
+        ai   = self.resume_ai_content
+        import os
+
+        filename = f"{self.current_user}_resume.pdf"
+
+        try:
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_auto_page_break(auto=True, margin=15)
+            pdf.set_margins(15, 15, 15)
+            pdf.set_text_color(0, 0, 0)
+
+            # ---- HEADER ----
+            # Determine if photo is present so we can adjust text width
+            PHOTO_W    = 32   # mm wide
+            PHOTO_H    = 38   # mm tall
+            PHOTO_X    = 178  # mm from left (right margin area)
+            PHOTO_Y    = 10   # mm from top
+            TEXT_W     = 150  # safe width that won't overlap photo
+            has_photo  = bool(self.resume_photo_path and os.path.exists(self.resume_photo_path))
+
+            # Place photo first (behind text in Z order)
+            if has_photo:
+                try:
+                    tmp_photo = f"{self.current_user}_tmp_photo.jpg"
+                    img = Image.open(self.resume_photo_path)
+                    # Crop to square from center for clean photo
+                    w, h = img.size
+                    side = min(w, h)
+                    left = (w - side) // 2
+                    top  = (h - side) // 2
+                    img = img.crop((left, top, left + side, top + side)).resize((200, 200))
+                    img.save(tmp_photo)
+                    pdf.image(tmp_photo, x=PHOTO_X, y=PHOTO_Y, w=PHOTO_W, h=PHOTO_H)
+                    if os.path.exists(tmp_photo):
+                        os.remove(tmp_photo)
+                except Exception:
+                    has_photo = False
+
+            # Name (large bold)
+            pdf.set_font("Helvetica", "B", 22)
+            name_safe = data.get("name", "Name").encode("latin-1", "replace").decode("latin-1")
+            pdf.set_xy(15, 12)
+            pdf.cell(TEXT_W, 10, name_safe, new_x="LMARGIN", new_y="NEXT")
+
+            # Target role (subtitle)
+            if data.get("target_role"):
+                pdf.set_font("Helvetica", "I", 12)
+                role_safe = data["target_role"].encode("latin-1", "replace").decode("latin-1")
+                pdf.set_x(15)
+                pdf.cell(TEXT_W, 6, role_safe, new_x="LMARGIN", new_y="NEXT")
+
+            # Contact line 1 — Email | Phone | Location
+            # Using latin-1 safe bracket-icon style: [E] [M] [Loc]
+            pdf.set_font("Helvetica", "", 9)
+            contact_parts = []
+            if data.get("email"):
+                contact_parts.append("[E] " + data["email"])
+            if data.get("phone"):
+                contact_parts.append("[M] " + data["phone"])
+            if data.get("location"):
+                contact_parts.append("[Loc] " + data["location"])
+
+            if contact_parts:
+                contact_str = "   |   ".join(contact_parts)
+                contact_str = contact_str.encode("latin-1", "replace").decode("latin-1")
+                pdf.set_x(15)
+                pdf.cell(TEXT_W, 6, contact_str, new_x="LMARGIN", new_y="NEXT")
+
+            # Contact line 2 — GitHub | LinkedIn
+            links = []
+            if data.get("github"):
+                links.append("[GitHub] " + data["github"])
+            if data.get("linkedin"):
+                links.append("[LinkedIn] " + data["linkedin"])
+            if links:
+                links_str = "   |   ".join(links).encode("latin-1", "replace").decode("latin-1")
+                pdf.set_x(15)
+                pdf.cell(TEXT_W, 6, links_str, new_x="LMARGIN", new_y="NEXT")
+
+            # Horizontal divider — drawn BELOW whichever is taller: text block or photo
+            text_bottom = pdf.get_y() + 4
+            photo_bottom = PHOTO_Y + PHOTO_H + 4 if has_photo else 0
+            divider_y = max(text_bottom, photo_bottom)
+            pdf.set_draw_color(0, 0, 0)
+            pdf.set_line_width(0.8)
+            pdf.line(15, divider_y, 195, divider_y)
+            pdf.set_line_width(0.2)
+            pdf.set_y(divider_y + 5)
+
+
+            # ---- Helper: Solid Section Line ----
+            def render_section_title(title):
+                pdf.set_font("Helvetica", "B", 13)
+                pdf.set_text_color(0, 0, 0)
+                clean_t = title.upper().encode("latin-1", "replace").decode("latin-1")
+                pdf.cell(0, 8, clean_t, new_x="LMARGIN", new_y="NEXT")
+                
+                # Draw thick black horizontal line under title
+                x, y = pdf.get_x(), pdf.get_y()
+                pdf.set_line_width(0.7)
+                pdf.line(x, y, 200, y)
+                pdf.set_line_width(0.2) # reset
+                pdf.ln(3)
+
+            # ---- AI SUMMARY & STRENGTHS ----
+            if ai.get("objective") or ai.get("summary"):
+                render_section_title("Summary")
+                pdf.set_font("Helvetica", "", 11)
+                t = (ai.get("summary") or ai.get("objective")).encode("latin-1", "replace").decode("latin-1")
+                pdf.multi_cell(0, 5, t, new_x="LMARGIN", new_y="NEXT")
+                pdf.ln(4)
+                
+            # ---- EDUCATION ----
+            if self.resume_education_rows:
+                has_edu = any(r["degree"].get().strip() or r["college"].get().strip() for r in self.resume_education_rows)
+                if has_edu:
+                    render_section_title("Education")
+                    for r in self.resume_education_rows:
+                        deg = r["degree"].get().strip().encode("latin-1", "replace").decode("latin-1")
+                        col = r["college"].get().strip().encode("latin-1", "replace").decode("latin-1")
+                        yr  = r["year"].get().strip().encode("latin-1", "replace").decode("latin-1")
+                        grd = r["grade"].get().strip().encode("latin-1", "replace").decode("latin-1")
+                        
+                        if not deg and not col: continue
+                        
+                        # Line 1: Degree (Bold, Left) | Year (Normal, Right)
+                        pdf.set_font("Helvetica", "B", 11)
+                        pdf.cell(150, 6, deg)
+                        pdf.set_font("Helvetica", "", 10)
+                        pdf.cell(0, 6, yr, align="R", new_x="LMARGIN", new_y="NEXT")
+                        
+                        # Line 2: College (Italic)
+                        if col:
+                            pdf.set_font("Helvetica", "I", 10)
+                            pdf.cell(0, 5, col, new_x="LMARGIN", new_y="NEXT")
+                        
+                        # Line 3: Grade
+                        if grd:
+                            pdf.set_font("Helvetica", "", 10)
+                            pdf.cell(0, 5, f"CGPA/Percentage: {grd}", new_x="LMARGIN", new_y="NEXT")
+                        pdf.ln(3)
+
+            # ---- SKILLS ----
+            if self.resume_skills_list:
+                render_section_title("Technical Skills")
+                pdf.set_font("Helvetica", "", 11)
+                skills_str = ", ".join(self.resume_skills_list).encode("latin-1", "replace").decode("latin-1")
+                pdf.multi_cell(0, 6, skills_str, new_x="LMARGIN", new_y="NEXT")
+                pdf.ln(4)
+
+            # ---- PROJECTS (Conditional) ----
+            proj_rows = getattr(self, "resume_projects_rows", [])
+            has_projects = any(r["title"].get().strip() or r["desc"].get().strip() for r in proj_rows)
+            if has_projects:
+                render_section_title("Projects")
+                for r in proj_rows:
+                    t = r["title"].get().strip().encode("latin-1", "replace").decode("latin-1")
+                    d = r["desc"].get().strip().encode("latin-1", "replace").decode("latin-1")
+                    if not t and not d: continue
+                    
+                    pdf.set_font("Helvetica", "B", 11)
+                    if t:
+                        pdf.cell(0, 6, t, new_x="LMARGIN", new_y="NEXT")
+                    pdf.set_font("Helvetica", "", 10)
+                    if d:
+                        pdf.multi_cell(0, 5, "  * " + d, new_x="LMARGIN", new_y="NEXT")
+                    pdf.ln(3)
+
+            # ---- EXPERIENCE ----
+            if self.resume_experience_rows:
+                has_exp = any(r["role"].get().strip() or r["company"].get().strip() for r in self.resume_experience_rows)
+                if has_exp:
+                    render_section_title("Experience")
+                    for r in self.resume_experience_rows:
+                        role = r["role"].get().strip().encode("latin-1", "replace").decode("latin-1")
+                        comp = r["company"].get().strip().encode("latin-1", "replace").decode("latin-1")
+                        dur  = r["duration"].get().strip().encode("latin-1", "replace").decode("latin-1")
+                        
+                        if not role and not comp: continue
+                        
+                        pdf.set_font("Helvetica", "B", 11)
+                        if role:
+                            pdf.cell(150, 6, role)
+                        else:
+                            pdf.cell(150, 6, "")
+                        
+                        pdf.set_font("Helvetica", "", 10)
+                        pdf.cell(0, 6, dur, align="R", new_x="LMARGIN", new_y="NEXT")
+                        
+                        if comp:
+                            pdf.set_font("Helvetica", "I", 10)
+                            pdf.cell(0, 5, comp, new_x="LMARGIN", new_y="NEXT")
+                        pdf.ln(3)
+
+            # ---- CERTIFICATIONS ----
+            cert_rows = getattr(self, "resume_certs_rows", [])
+            has_certs = any(r["title"].get().strip() or r["desc"].get().strip() for r in cert_rows)
+            if has_certs:
+                render_section_title("Achievements & Certifications")
+                for r in cert_rows:
+                    t = r["title"].get().strip().encode("latin-1", "replace").decode("latin-1")
+                    d = r["desc"].get().strip().encode("latin-1", "replace").decode("latin-1")
+                    if not t and not d: continue
+                    
+                    pdf.set_font("Helvetica", "B", 11)
+                    if t:
+                        pdf.cell(0, 6, t, new_x="LMARGIN", new_y="NEXT")
+                    pdf.set_font("Helvetica", "", 10)
+                    if d:
+                        pdf.multi_cell(0, 5, d, new_x="LMARGIN", new_y="NEXT")
+                    pdf.ln(3)
+
+            pdf.output(filename)
+            messagebox.showinfo("Resume Exported \u2713", f"Your resume has been saved as:\n{filename}")
+        except Exception as e:
+            messagebox.showerror("Export Failed", f"Could not generate resume PDF:\n{e}")
+
 
 if __name__ == "__main__":
     app = AdvancedCareerApp()
